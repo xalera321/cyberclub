@@ -229,20 +229,43 @@ app.get('/users/name/:name', authenticateToken, async (req, res) => {
 app.put('/users/:id', authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.id);
     const { login, u_password, email, account_image, balance } = req.body;
+    const user = await db('userprofile').where('user_id', userId).first(); // Получаем пользователя по его идентификатору
+
     try {
         if (req.user.role !== 'Администратор' && userId !== req.user.id) {
             return res.status(403).json({ error: 'Forbidden' });
         }
+
+        // Проверяем, был ли передан новый логин и не совпадает ли он с текущим
+        if (login && login !== user.login) {
+            const existingLoginUser = await db('userprofile').whereNot('user_id', userId).andWhere('login', login).first();
+            if (existingLoginUser) {
+                return res.status(400).json({ error: 'Логин уже используется другим пользователем' });
+            }
+        }
+
+        // Проверяем, был ли передан новый email и не совпадает ли он с текущим
+        if (email && email !== user.email) {
+            const existingEmailUser = await db('userprofile').whereNot('user_id', userId).andWhere('email', email).first();
+            if (existingEmailUser) {
+                return res.status(400).json({ error: 'Email уже используется другим пользователем' });
+            }
+        }
+
+        // Обновляем только те поля, которые были переданы в запросе
         const updatedUserData = {
-            login,
+            login: login || user.login,
             u_password,
-            email,
+            email: email || user.email,
+            account_image,
+            balance
         };
 
         const updatedUser = await db('userprofile')
             .where('user_id', userId)
             .update(updatedUserData)
             .returning('*');
+
         res.json(updatedUser[0]);
     } catch (error) {
         console.error(error);
@@ -269,7 +292,7 @@ app.put('/users/:id/image', authenticateToken, async (req, res) => {
     }
 });
 
-app.post('/sessions/:id', authenticateToken, async (req, res) => {
+app.post('/sessions/:id', authenticateToken, async (req, res) => { // старт сессии
     const user_id = parseInt(req.params.id);
     const { duration, computer_id } = req.body;
 
@@ -287,7 +310,7 @@ app.post('/sessions/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        const computer = await db('computer').where('computer_id', computer_id).select('session_id').first();
+        const computer = await db('computer').where('computer_id', computer_id);
         if (!computer) {
             return res.status(404).json({ error: 'Computer not found' });
         }
@@ -298,7 +321,7 @@ app.post('/sessions/:id', authenticateToken, async (req, res) => {
 
         const tariff = 0.5;
         const cost = duration * tariff;
-        const bonusPoints = Math.floor(cost * 0.05); // Рассчитываем бонусные баллы
+        const bonusPoints = Math.round(Math.floor(cost * 0.05)); // Рассчитываем бонусные баллы
 
         const updatedBalance = user.balance - cost;
         const updatedBonusPoints = user.bonus_points + bonusPoints;
@@ -315,11 +338,17 @@ app.post('/sessions/:id', authenticateToken, async (req, res) => {
             date_time_start,
             date_time_end,
             duration,
+            computer_id,
             user_id,
         }).returning('*');
-        const session_id = newSession[0].session_id;
-        console.log(session_id);
-        await db('computer').where('computer_id', computer_id).update('session_id', session_id);
+
+        const computer_update = await db('computer')
+            .where('computer_id', computer_id)
+            .update({
+                busy: true,
+            }).returning('*');
+
+
         res.json(newSession[0]);
     } catch (error) {
         console.error(error);
@@ -333,7 +362,13 @@ async function endSessions() {
         const currentTime = new Date();
         const endingSessions = await db('session').where('date_time_end', '<=', currentTime);
         for (const session of endingSessions) {
+            const { computer_id } = await db('session').select('computer_id').where('session_id', session.session_id).first();
             await db('session').where('session_id', session.session_id).del();
+            const computer_update = await db('computer')
+                .where('computer_id', computer_id)
+                .update({
+                    busy: false,
+                }).returning('*');
         }
         console.log(`Ended ${endingSessions.length} sessions.`);
     } catch (error) {
@@ -353,7 +388,7 @@ function executeTask() {
 }
 executeTask();
 
-app.put('/sessions/end/:id', authenticateToken, async (req, res) => {
+app.put('/sessions/end/:id', authenticateToken, async (req, res) => { // завершить сессию
     const sessionId = req.params.id;
 
     try {
@@ -377,8 +412,14 @@ app.put('/sessions/end/:id', authenticateToken, async (req, res) => {
             .increment('balance', balanceToAdd)
             .returning('balance');
 
+        const { computer_id } = await db('session').select('computer_id').where('session_id', sessionId).first();
+        const computer_update = await db('computer')
+            .where('computer_id', computer_id)
+            .update({
+                busy: false,
+            }).returning('*');
+
         await db('session').where('session_id', sessionId).del();
-        await db('computer').where('session_id', sessionId).update({ 'avatar_path': avatarPath })
 
 
         return res.json({ message: 'Session ended successfully', balance: updatedBalance[0] });
@@ -409,7 +450,7 @@ app.post('/computers', authenticateToken, async (req, res) => {
 
 app.get('/computers', async (req, res) => {
     try {
-        const computers = await db('computer').select('*');
+        const computers = await db('computer').select('*').orderBy('computer_id', 'asc');
         res.json(computers);
     } catch (error) {
         console.error(error);
@@ -417,10 +458,9 @@ app.get('/computers', async (req, res) => {
     }
 });
 
-
 app.get('/userprofiles', async (req, res) => {
     try {
-        const userProfiles = await db('userprofile').select('*');
+        const userProfiles = await db('userprofile').select('*').orderBy('user_id', 'asc');
         res.json(userProfiles);
     } catch (error) {
         console.error(error);
@@ -581,6 +621,68 @@ app.put('/users/:userId/password', async (req, res) => {
         return res.status(500).json({ message: 'Internal server error' });
     }
 });
+
+// Добавляем маршрут для отправки письма с подтверждением изменения почты
+app.put('/users/:id/email', authenticateToken, async (req, res) => {
+    const userId = parseInt(req.params.id);
+    const { newEmail } = req.body; // Предполагается, что новый email передается в теле запроса как newEmail
+
+    try {
+        if (userId !== req.user.id) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        // Проверяем, существует ли пользователь с заданным новым email
+        const existingUserWithEmail = await db('userprofile').where('email', newEmail).first();
+        if (existingUserWithEmail) {
+            return res.status(400).json({ error: 'User with this email already exists' });
+        }
+
+        // Отправляем письмо с подтверждением на новый email
+        const token = jwt.sign({ userId, newEmail }, 'emailChangeToken', { expiresIn: '1h' });
+        const confirmationLink = `http://localhost:8080/confirm-email/${token}`;
+
+        transporter.sendMail({
+            to: newEmail,
+            subject: 'Подтверждение изменения почты',
+            text: 'Подтверждение изменения почты',
+            html: `
+                <h1>Подтвердите изменение почты!</h1>
+                <p>Для подтверждения изменения вашего адреса электронной почты перейдите по <a href="${confirmationLink}">ссылке</a>.</p>
+            `
+        }).then(async () => {
+            console.info("Письмо с подтверждением успешно отправлено на адрес: ", newEmail);
+            res.status(200).json({ message: 'Confirmation email sent successfully' });
+        }).catch(err => {
+            console.warn("Произошла ошибка при отправке сообщения:", err);
+            res.status(500).send('Error sending confirmation email');
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// Добавляем маршрут для обработки подтверждения изменения почты
+app.get('/confirm-email/:token', async (req, res) => {
+    const token = req.params.token;
+    try {
+        const { userId, newEmail } = jwt.verify(token, 'emailChangeToken');
+        const user = await db('userprofile').where('user_id', userId).first();
+        if (!user) {
+            return res.status(404).json({ error: "User not found" })
+        }
+
+        // Обновляем адрес электронной почты пользователя
+        await db('userprofile').where('user_id', userId).update({ email: newEmail });
+
+        res.status(200).json({ message: 'Email changed successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ error: 'Invalid or expired token' });
+    }
+});
+
 
 app.listen(8080, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

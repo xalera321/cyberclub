@@ -7,6 +7,9 @@ function AccountPage({ username, handleLogout, setLoggedInUsername }) {
     const [newLogin, setNewLogin] = useState('');
     const [avatar, setAvatar] = useState(null);
     const [passwordChangeError, setPasswordChangeError] = useState('');
+    const [newEmail, setNewEmail] = useState('');
+    const [changeEmailError, setChangeEmailError] = useState('');
+    const [emailChangeSuccess, setEmailChangeSuccess] = useState(false);
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -115,6 +118,34 @@ function AccountPage({ username, handleLogout, setLoggedInUsername }) {
         }
     };
 
+    const handleChangeEmail = async () => {
+        try {
+            const token = Cookies.get('token');
+            await axios.put(`http://localhost:8080/users/${username}/email`, { newEmail }, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            // Отправка подтверждения на новую почту (логика отправки письма на сервере)
+            setEmailChangeSuccess(true);
+        } catch (error) {
+            console.error(error);
+            setChangeEmailError('Не удалось изменить почту. Пожалуйста, попробуйте еще раз.');
+        }
+    };
+
+    const handleEmailChangeConfirmation = async () => {
+        // Обработка подтверждения изменения на клиенте (логика подтверждения на сервере)
+        try {
+            // Запрос на сервер для подтверждения изменения
+            setEmailChangeSuccess(false); // Сброс успешного статуса после подтверждения
+            setNewEmail(''); // Очистка поля новой почты
+        } catch (error) {
+            console.error(error);
+            // Обработка ошибки подтверждения
+        }
+    };
+
     return (
         <div className="container mt-5">
             <div className="card">
@@ -136,6 +167,19 @@ function AccountPage({ username, handleLogout, setLoggedInUsername }) {
                             </div>
                             {passwordChangeError && <p className="text-danger">{passwordChangeError}</p>}
                             <ChangePasswordForm handleChangePassword={handleChangePassword} />
+                            <h2>Изменить почту</h2>
+                            <form onSubmit={handleChangeEmail}>
+                                <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Введите новый адрес почты" required />
+                                <button type="submit">Изменить почту</button>
+                            </form>
+                            {changeEmailError && <p className="text-danger">{changeEmailError}</p>}
+                            {emailChangeSuccess && (
+                                <div>
+                                    <p>На ваш новый адрес электронной почты отправлено подтверждение.</p>
+                                    <p>Пожалуйста, проверьте свою почту и подтвердите изменение.</p>
+                                    <button onClick={handleEmailChangeConfirmation}>Подтвердить изменение</button>
+                                </div>
+                            )}
                         </div>
                     )}
                     <button onClick={handleLogout} className="btn btn-danger">Выход из аккаунта</button>
