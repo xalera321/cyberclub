@@ -6,14 +6,14 @@ function AccountPage({ username, handleLogout, setLoggedInUsername }) {
     const [userData, setUserData] = useState(null);
     const [newLogin, setNewLogin] = useState('');
     const [avatar, setAvatar] = useState(null);
-    const [loginError, setLoginError] = useState('');
+    const [passwordChangeError, setPasswordChangeError] = useState('');
 
     useEffect(() => {
         const fetchUserData = async () => {
             try {
                 const token = Cookies.get('token');
                 if (!token) {
-                    console.error('Token not found');
+                    console.error('Токен не найден');
                     return;
                 }
 
@@ -81,14 +81,37 @@ function AccountPage({ username, handleLogout, setLoggedInUsername }) {
                 }
             });
             setUserData(response.data);
-            setLoginError('');
-
-            // Обновляем значение loggedInUsername в localStorage
-            localStorage.setItem('username', newLogin);
-            setLoggedInUsername(newLogin); // Обновляем состояние loggedInUsername в компоненте
+            setNewLogin('');
         } catch (error) {
             console.error(error);
-            setLoginError('Failed to change login. Please try again.');
+        }
+    };
+
+    const handleChangePassword = async (currentPassword, newPassword, confirmPassword) => {
+        try {
+            if (newPassword !== confirmPassword) {
+                setPasswordChangeError('Новый пароль и подтверждение нового пароля не совпадают.');
+                return;
+            }
+            if (newPassword === currentPassword) {
+                setPasswordChangeError('Новый пароль совпадает со старым паролем.');
+                return;
+            }
+
+            const token = Cookies.get('token');
+            const response = await axios.put(`http://localhost:8080/users/${userData.user_id}/password`,
+                { currentPassword, newPassword },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+            // Обработка успешного изменения пароля
+            console.log(response.data);
+            setPasswordChangeError('');
+        } catch (error) {
+            console.error(error);
+            setPasswordChangeError('Не удалось изменить пароль. Пожалуйста, попробуйте еще раз.');
         }
     };
 
@@ -111,13 +134,43 @@ function AccountPage({ username, handleLogout, setLoggedInUsername }) {
                                     <button onClick={handleChangeLogin} className="btn btn-primary">Изменить логин</button>
                                 </div>
                             </div>
-                            {loginError && <p className="text-danger">{loginError}</p>}
+                            {passwordChangeError && <p className="text-danger">{passwordChangeError}</p>}
+                            <ChangePasswordForm handleChangePassword={handleChangePassword} />
                         </div>
                     )}
                     <button onClick={handleLogout} className="btn btn-danger">Выход из аккаунта</button>
                 </div>
             </div>
         </div>
+    );
+}
+
+function ChangePasswordForm({ handleChangePassword }) {
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        handleChangePassword(currentPassword, newPassword, confirmPassword);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <div className="form-group">
+                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="form-control" placeholder="Текущий пароль" required />
+            </div>
+            <div className="form-group">
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="form-control" placeholder="Новый пароль" required />
+            </div>
+            <div className="form-group">
+                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="form-control" placeholder="Подтвердите новый пароль" required />
+            </div>
+            <button type="submit" className="btn btn-primary">Изменить пароль</button>
+        </form>
     );
 }
 

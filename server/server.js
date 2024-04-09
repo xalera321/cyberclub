@@ -550,30 +550,37 @@ app.put('/users/:id/login', authenticateToken, async (req, res) => {
 });
 
 // Добавляем новый маршрут и обработчик для изменения пароля
-app.put('/users/:id/password', authenticateToken, async (req, res) => {
-    const userId = parseInt(req.params.id);
-    const { currentPassword, newPassword } = req.body;
+app.put('/users/:userId/password', async (req, res) => {
+    const { userId } = req.params;
+    const { oldPassword, newPassword, confirmNewPassword } = req.body;
+
+    // Проверка соответствия нового пароля и его подтверждения
+    if (newPassword !== confirmNewPassword) {
+        return res.status(400).json({ message: 'New password and confirm password do not match' });
+    }
 
     try {
-        // Получаем данные пользователя из базы данных
-        const user = await db('userprofile').where({ user_id: userId, u_password: currentPassword }).first();
+        // Проверка соответствия старого пароля
+        const user = await User.findById(userId);
         if (!user) {
-            return res.status(401).json({ error: 'Invalid current password' });
+            return res.status(404).json({ message: 'User not found' });
+        }
+        const isPasswordValid = await bcrypt.compare(oldPassword, user.u_password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid old password' });
         }
 
-        // Обновляем пароль пользователя в базе данных
-        await db('userprofile').where('user_id', userId).update({ u_password: newPassword });
+        // Обновление пароля пользователя
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        user.u_password = hashedNewPassword;
+        await user.save();
 
-        // Возвращаем успешный ответ
-        res.json({ message: 'Password changed successfully' });
+        return res.status(200).json({ message: 'Password updated successfully' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(500).json({ message: 'Internal server error' });
     }
 });
-
-
-
 
 app.listen(8080, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
