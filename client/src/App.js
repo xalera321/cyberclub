@@ -1,10 +1,11 @@
 // App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import UserAuth from './components/UserAuth';
-import AdminAuth from './components/AdminAuth';
-import AdminPanel from './components/AdminPanel';
-import AccountPage from './components/AccountPage';
+import UserAuth from './pages/UserAuth';
+import AdminAuth from './pages/AdminAuth';
+import AdminPanel from './pages/AdminPanel';
+import AccountPage from './pages/AccountPage';
+import Header from './components/Header'; // добавлен импорт
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
@@ -100,6 +101,7 @@ function App() {
 
     return (
         <Router>
+            <Header loggedInUsername={loggedInUsername || loggedInUsernameAdmin} handleLogout={handleLogout} />
             <Routes>
                 <Route path="/account" element={loggedInUsername ? <AccountPage username={loggedInUsername} handleLogout={handleLogout} setLoggedInUsername={setLoggedInUsername} /> : <Navigate to="/" />} />
                 <Route path="/" element={<UserAuth onLogin={handleLogin} onRegister={handleRegistration} loginError={loginError} registrationError={registrationError} />} />

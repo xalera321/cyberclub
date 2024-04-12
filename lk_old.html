@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="style.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Личный кабинет</title>
+</head>
+
+<body class="bg-dark text-white d-flex flex-column">
+
+    <div class="container-fluid" style="height: 100vh;">
+        <div class="row" style="height: 100vh;">
+            <div class="col-md-3 menu bg-dark text-light shadow">
+                <div class="text-center">
+                    <img src="https://placehold.co/100x100" alt="Avatar"
+                        class="avatar mb-3 img-fluid rounded-circle mt-4" data-toggle="modal"
+                        data-target="#avatarModal">
+                    <p>Username</p>
+                </div>
+                <ul class="text-center menu-list nav flex-column">
+                    <li class="nav-item mb-3">
+                        <button type="button" class="btn btn-outline-warning w-100" id="panelTab" data-toggle="pill"
+                            href="#panel">Панель управления</button>
+                    </li>
+                    <li class="nav-item mb-3">
+                        <button type="button" class="btn btn-outline-warning w-100" id="historyTab" data-toggle="pill"
+                            href="#history">История сеансов</button>
+                    </li>
+                    <li class="nav-item mb-3">
+                        <a href="index.html"><button type="button"
+                                class="btn btn-outline-warning w-100">Выход</button></a>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-md-9">
+                <div class="tab-content mt-4">
+                    <div class="tab-pane fade" id="panel" style="height: 100vh;">
+                        <div class="container">
+                            <div class="card bg-dark text-white">
+                                <div class="card-header">
+                                    Панель управления
+                                </div>
+                                <div class="card-body">
+                                    <form id="panelForm">
+                                        <div class="form-group">
+                                            <label for="login">Логин</label>
+                                            <input type="text" class="form-control" id="login"
+                                                placeholder="Введите логин">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="password">Пароль</label>
+                                            <input type="password" class="form-control" id="password"
+                                                placeholder="Введите пароль">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="email">Email</label>
+                                            <input type="email" class="form-control" id="email"
+                                                placeholder="Введите email">
+                                        </div>
+                                        <div class="form-group">
+                                            <p id="saveDataBtn" class="btn btn-primary btn-block">Сохранить данные</p>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="balance">Баланс: 2500₽</label>
+                                        </div>
+                                        <button type="button" class="btn btn-success btn-block" data-toggle="modal"
+                                            data-target="#startSessionModal">Начать сеанс</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="history" style="height: 100vh;">
+                        <div class="container">
+                            <div class="card mt-4 bg-dark text-white">
+                                <div class="card-header">
+                                    История сеансов
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-dark">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Дата сеанса</th>
+                                                    <th scope="col">Тариф</th>
+                                                    <th scope="col">Продолжительность</th>
+                                                    <th scope="col">Стоимость</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>01.01.2023</td>
+                                                    <td>Почасово</td>
+                                                    <td>2 часа</td>
+                                                    <td>200р</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="avatarModal" tabindex="-1" role="dialog"
+                        aria-labelledby="avatarModalLabel" aria-hidden="true">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content bg-dark text-white">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="avatarModalLabel">Сменить аватарку</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <form>
+                                        <div class="form-group">
+                                            <label for="newAvatar">Выберите новую аватарку</label>
+                                            <input type="file" class="form-control-file" id="newAvatar">
+                                        </div>
+                                        <button type="button" id="saveAvatarBtn"
+                                            class="btn btn-primary btn-block">Сохранить</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="startSessionModal" tabindex="-1" role="dialog"
+                        aria-labelledby="startSessionModalLabel" aria-hidden="true">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content bg-dark text-white">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="startSessionModalLabel">Выберите компьютер для начала
+                                        сеанса</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="card bg-dark text-white">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">Компьютер 1</h5>
+                                                    <p class="card-text">Статус: Занят</p>
+                                                    <button type="button" class="btn btn-success btn-block"
+                                                        disabled>Начать аренду</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card bg-dark text-white">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">Компьютер 2</h5>
+                                                    <p class="card-text">Статус: Занят</p>
+                                                    <button type="button" class="btn btn-success btn-block"
+                                                        disabled>Начать аренду</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="card bg-dark text-white">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">Компьютер 3</h5>
+                                                    <p class="card-text">Статус: Свободен</p>
+                                                    <button type="button" class="btn btn-success btn-block"
+                                                        data-toggle="modal" data-target="#tariffModal">Начать
+                                                        аренду</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card bg-dark text-white">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">Компьютер 4</h5>
+                                                    <p class="card-text">Статус: Свободен</p>
+                                                    <button type="button" class="btn btn-success btn-block"
+                                                        data-toggle="modal" data-target="#tariffModal">Начать
+                                                        аренду</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="tariffModal" tabindex="-1" role="dialog"
+                        aria-labelledby="tariffModalLabel" aria-hidden="true">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content bg-dark text-white">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="tariffModalLabel">Выберите тариф</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body" data-bs-theme="dark">
+                                    <ul class="nav nav-tabs" id="tariffTabs" role="tablist">
+                                        <li class="nav-item">
+                                            <a class="nav-link active" data-bs-theme="dark" id="night-tab"
+                                                data-toggle="tab" href="#night" role="tab" aria-controls="night"
+                                                aria-selected="true">Ночь</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" id="day-tab" data-toggle="tab" href="#day" role="tab"
+                                                aria-controls="day" aria-selected="false">День</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" id="dayNight-tab" data-toggle="tab" href="#dayNight"
+                                                role="tab" aria-controls="dayNight" aria-selected="false">Сутки</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" id="hourly-tab" data-toggle="tab" href="#hourly"
+                                                role="tab" aria-controls="hourly" aria-selected="false">Почасово</a>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content mt-3">
+                                        <div class="tab-pane fade show active" id="night" role="tabpanel"
+                                            aria-labelledby="night-tab">
+                                            <label for="hourlyDuration">Укажите количество минут:</label>
+                                            <input type="number" class="form-control" id="hourlyDuration"
+                                                placeholder="Количество минут" disabled>
+                                        </div>
+                                        <div class="tab-pane fade" id="day" role="tabpanel" aria-labelledby="day-tab">
+                                            <label for="hourlyDuration">Укажите количество минут:</label>
+                                            <input type="number" class="form-control" id="hourlyDuration"
+                                                placeholder="Количество минут" disabled>
+                                        </div>
+                                        <div class="tab-pane fade" id="dayNight" role="tabpanel"
+                                            aria-labelledby="dayNight-tab">
+                                            <label for="hourlyDuration">Укажите количество минут:</label>
+                                            <input type="number" class="form-control" id="hourlyDuration"
+                                                placeholder="Количество минут" disabled>
+                                        </div>
+                                        <div class="tab-pane fade" id="hourly" role="tabpanel"
+                                            aria-labelledby="hourly-tab">
+                                            <label for="hourlyDuration">Укажите количество минут:</label>
+                                            <input type="number" class="form-control" id="hourlyDuration"
+                                                placeholder="Количество минут">
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button type="button" id="continueBtn"
+                                            class="btn btn-success btn-block">Продолжить</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="saveData" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-delay="3000"
+            data-autohide="true">
+            <div class="toast-header bg-primary text-white">
+                <strong class="me-auto">Успешно</strong>
+            </div>
+            <div class="toast-body bg-dark text-white">
+                Данные успешно изменены.
+            </div>
+        </div>
+    </div>
+    <div class="toast-container">
+        <div id="continue" class="toast z-3" role="alert" aria-live="assertive" aria-atomic="true" data-delay="3000"
+            data-autohide="true" tabindex="-3">
+            <div class="toast-header bg-primary text-white">
+                <strong class="me-auto">Успешно</strong>
+            </div>
+            <div class="toast-body bg-dark text-white">
+                Сеанс успешно начат.
+            </div>
+        </div>
+    </div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3 z-3">
+        <div id="saveAvatar" class="toast z-3" role="alert" aria-live="assertive" aria-atomic="true" data-delay="3000"
+            data-autohide="true" tabindex="-3">
+            <div class="toast-header bg-primary text-white">
+                <strong class="me-auto">Успешно</strong>
+            </div>
+            <div class="toast-body bg-dark text-white">
+                Фото профиля успешно изменено.
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
