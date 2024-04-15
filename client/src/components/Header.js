@@ -3,38 +3,40 @@ import { Link } from 'react-router-dom';
 
 const Header = ({ loggedInUsername, handleLogout }) => {
     return (
-        <nav className="navbar navbar-expand-lg navbar-light bg-light">
-            <div className="container">
-                <Link className="navbar-brand" to="/">Your App</Link>
-                <button className="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                    <span className="navbar-toggler-icon"></span>
-                </button>
-
-                <div className="collapse navbar-collapse" id="navbarSupportedContent">
-                    <ul className="navbar-nav ml-auto">
-                        {loggedInUsername ? (
-                            <>
-                                <li className="nav-item">
-                                    <Link className="nav-link" to="/account">Account</Link>
-                                </li>
-                                <li className="nav-item">
-                                    <button className="btn btn-link nav-link" onClick={handleLogout}>Logout</button>
-                                </li>
-                            </>
-                        ) : (
-                            <>
-                                <li className="nav-item">
-                                    <Link className="nav-link" to="/login">Login</Link>
-                                </li>
-                                <li className="nav-item">
-                                    <Link className="nav-link" to="/register">Register</Link>
-                                </li>
-                            </>
-                        )}
-                    </ul>
+        <header>
+            <nav className="navbar mb-1 navbar-expand-lg shadow bg-dark">
+                <div className="container-fluid">
+                    <a className="navbar-brand text-white" href="#">CyberClub</a>
+                    <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+                        <span className="navbar-toggler-icon"></span>
+                    </button>
+                    <div className="collapse navbar-collapse" id="navbarText">
+                        <ul className="navbar-nav me-auto mb-2 mb-lg-0">
+                            <li className="nav-item">
+                                <a className="nav-link text-white" href="about_us.html">О нас</a>
+                            </li>
+                            <li className="nav-item">
+                                <a className="nav-link text-white" href="#">Контакты</a>
+                            </li>
+                            <li className="nav-item">
+                                <a className="nav-link text-white" href="shop.html">Витрина</a>
+                            </li>
+                        </ul>
+                        <span className="navbar-text text-white">
+                            {loggedInUsername ? (
+                                <>
+                                    <button className="btn btn-warning rounded-pill" onClick={handleLogout}>Logout</button>
+                                </>
+                            ) : (
+                                <>
+                                    <button className="btn btn-warning rounded-pill" data-bs-toggle="modal" data-bs-target="#login">Login</button>
+                                </>
+                            )}
+                        </span>
+                    </div>
                 </div>
-            </div>
-        </nav>
+            </nav>
+        </header>
     );
 }
 

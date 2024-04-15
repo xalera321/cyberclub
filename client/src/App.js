@@ -43,7 +43,7 @@ function App() {
         }
     };
 
-    const handleRegistration = async (registerFormData) => {
+    const handleRegister = async (registerFormData) => {
         try {
             const response = await axios.post('http://localhost:8080/register', registerFormData);
             const username = response.data.username;
@@ -104,7 +104,7 @@ function App() {
             <Header loggedInUsername={loggedInUsername || loggedInUsernameAdmin} handleLogout={handleLogout} />
             <Routes>
                 <Route path="/account" element={loggedInUsername ? <AccountPage username={loggedInUsername} handleLogout={handleLogout} setLoggedInUsername={setLoggedInUsername} /> : <Navigate to="/" />} />
-                <Route path="/" element={<UserAuth onLogin={handleLogin} onRegister={handleRegistration} loginError={loginError} registrationError={registrationError} />} />
+                <Route path="/" element={<UserAuth onLogin={handleLogin} onRegister={handleRegister} loginError={loginError} registrationError={registrationError} />} />
                 <Route path="/admin/login" element={<AdminAuth onLogin={handleAdminLogin} loginError={loginError} />} />
                 <Route path="/admin" element={loggedInUsernameAdmin ? <AdminPanel username={loggedInUsernameAdmin} handleLogout={handleLogout} /> : <Navigate to="/" />} />
             </Routes>
