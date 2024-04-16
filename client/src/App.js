@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import UserAuth from './pages/UserAuth';
 import AdminAuth from './pages/AdminAuth';
-import AdminPanel from './pages/AdminPanel';
+import AdminPanel from './components/AdminPanel';
 import AccountPage from './pages/AccountPage';
 import Header from './components/Header'; // добавлен импорт
 import axios from 'axios';

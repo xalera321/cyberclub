@@ -19,6 +19,7 @@ const transporter = nodemailer.createTransport({
     from: 'CyberClub <test_laba8dob@mail.ru>'
 });
 
+// db connection
 const db = knex({
     client: 'pg',
     connection: {
@@ -100,8 +101,6 @@ app.post('/register', async (req, res) => {
 
         const token = jwt.sign({ login, email }, 'cyberclubregistration', { expiresIn: '1h' });
 
-        const defaultAvatarPath = 'uploads/default_avatar.png'; // Путь к аватарке по умолчанию
-
         transporter.sendMail({
             to: email,
             subject: 'Подтверждение регистрации',
@@ -132,7 +131,6 @@ app.post('/register', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
-
 
 app.get('/confirm/:token', async (req, res) => {
     const token = req.params.token;
@@ -171,7 +169,6 @@ app.post('/login', async (req, res) => {
     }
 });
 
-
 app.post('/admin/login', async (req, res) => {
     const { login, e_password } = req.body;
 
@@ -183,7 +180,8 @@ app.post('/admin/login', async (req, res) => {
 
         const accessToken = jwt.sign({ employee_id: employee.employee_id, role: employee.role_name, username: employee.login }, JWT_SECRET);
         const username = employee.login
-        res.json({ accessToken, username });
+        const active = employee.active
+        res.json({ accessToken, username, active });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Internal Server Error' });
@@ -273,6 +271,113 @@ app.put('/users/:id', authenticateToken, async (req, res) => {
     }
 });
 
+function gen_password(len) {
+    var password = "";
+    var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!№;%:?*()_+=";
+    for (var i = 0; i < len; i++) {
+        password += symbols.charAt(Math.floor(Math.random() * symbols.length));
+    }
+    return password;
+}
+
+app.post('/employees/', authenticateToken, async (req, res) => {
+    const { login, role_name, email } = req.body;
+    const employee = await db('employee').where('login', login).first(); // Получаем пользователя по его идентификатору
+    const e_password = gen_password(10);
+    try {
+        if (req.user.role !== 'Менеджер') {
+            return res.status(403).json({ error: 'Недостаточно прав' });
+        }
+
+        if (employee) {
+            return res.status(400).json({ error: 'Логин уже используется другим пользователем' });
+        }
+
+        const newEmployeeData = {
+            login: login,
+            role_name: role_name,
+            e_password: e_password
+        };
+        try {
+            transporter.sendMail({
+                to: email,
+                subject: 'Новый пароль',
+                text: 'Новый пароль',
+                html: `<h1>Новый пароль для администратора!</h1>
+        <p>Уважаемый ${login}, ваш пароль для входа в админ панель: ${e_password}.</p>
+          `
+            }).then(async () => {
+                const newEmployee = await db('employee')
+                    .insert(newEmployeeData)
+                    .returning('*');
+            })
+        }
+        catch (error) {
+            return res.status(400).json("Не удалось отправить письмо")
+        }
+
+
+        res.json(newEmployeeData[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.put('/employees/:id', authenticateToken, async (req, res) => {
+    const employeeId = parseInt(req.params.id);
+    console.log('успех')
+    const { login, role_name, active } = req.body;
+    const employee = await db('employee').where('employee_id', employeeId).first(); // Получаем пользователя по его идентификатору
+
+    try {
+        console.log(req.user.role)
+        if (req.user.role !== 'Менеджер') {
+            return res.status(403).json({ error: 'Недостаточно прав' });
+        }
+
+        // Проверяем, был ли передан новый логин и не совпадает ли он с текущим
+        if (login && login !== employee.login) {
+            const existingLogin = await db('employee').whereNot('employee_id', employeeId).andWhere('login', login).first();
+            if (existingLogin) {
+                return res.status(400).json({ error: 'Логин уже используется другим пользователем' });
+            }
+        }
+
+
+        // Обновляем только те поля, которые были переданы в запросе
+        const updatedEmployeeData = {
+            login: login || employee.login,
+            role_name: role_name || employee.role_name,
+            active: active
+        };
+        console.log(updatedEmployeeData.active)
+
+        const updatedEmployee = await db('employee')
+            .where('employee_id', employeeId)
+            .update(updatedEmployeeData)
+            .returning('*');
+
+        res.json(updatedEmployee[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.get('/employees', authenticateToken, async (req, res) => {
+    // Проверяем роль пользователя
+    try {
+        // Получаем список сотрудников из базы данных
+        const employees = await db('employee').select('*').orderBy('employee_id', 'asc');
+        res.json(employees);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
 app.put('/users/:id/image', authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.id);
     const { account_image } = req.body;
@@ -295,34 +400,44 @@ app.put('/users/:id/image', authenticateToken, async (req, res) => {
 app.post('/sessions/:id', authenticateToken, async (req, res) => { // старт сессии
     const user_id = parseInt(req.params.id);
     const { duration, computer_id } = req.body;
-
+    otherSession = await db('session').where('user_id', user_id).first();
     try {
+        otherSession = await db('session').where('user_id', user_id).first();
+        if (otherSession) {
+            return res.status(403).json({ error: 'Сессия уже начата' })
+        }
         if (duration <= 0) {
-            return res.status(403).json({ error: 'Duration must be greater than 0' });
+            return res.status(403).json({ error: 'Продолжительность сессии должна быть больше 0' });
         }
 
         if (req.user.role !== 'Администратор' && user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Forbidden' });
+            return res.status(403).json({ error: 'Недостаточно прав' });
         }
 
         const user = await db('userprofile').where('user_id', user_id).select('balance', 'bonus_points').first();
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ error: 'Пользователь не найден' });
         }
 
         const computer = await db('computer').where('computer_id', computer_id);
         if (!computer) {
-            return res.status(404).json({ error: 'Computer not found' });
+            return res.status(404).json({ error: 'Такого компьютера не существует' });
+        }
+        console.log(computer)
+        if (!computer.active) {
+            return res.status(404).json({ error: 'Компьютер в данный момент не доступен!' });
         }
 
-        if (computer.session_id) {
-            return res.status(400).json({ error: 'Computer already in use' });
+        if (computer.busy) {
+            return res.status(400).json({ error: 'Компьютер уже используется' });
         }
 
         const tariff = 0.5;
         const cost = duration * tariff;
         const bonusPoints = Math.round(Math.floor(cost * 0.05)); // Рассчитываем бонусные баллы
-
+        if (user.balance < cost) {
+            return res.status(400).json({ error: 'Недостаточно средств' })
+        }
         const updatedBalance = user.balance - cost;
         const updatedBonusPoints = user.bonus_points + bonusPoints;
 
@@ -447,10 +562,88 @@ app.post('/computers', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/employees', authenticateToken, async (req, res) => {
+    // Проверяем роль пользователя
+    if (req.user.role !== 'Менеджер') {
+        return res.status(403).json({ error: 'Недостаточно прав' });
+    }
 
-app.get('/computers', async (req, res) => {
+    try {
+        // Получаем список сотрудников из базы данных
+        const employees = await db('employee').select('*');
+
+        // Возвращаем список сотрудников
+        res.json(employees);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.put('/computers/:computerId/toggleActive', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Менеджер') {
+            console.log(req.user.role)
+            return res.status(403).json({ error: 'Недостаточно прав' });
+
+        }
+
+        const { computerId } = req.params;
+
+        // Получаем текущее состояние "active" компьютера
+        const currentComputer = await db('computer').select('active').where({ computer_id: computerId }).first();
+        const isActive = currentComputer.active;
+        console.log("победа")
+        // Инвертируем состояние "active"
+        const updatedActive = !isActive;
+
+        // Обновляем состояние "active" в базе данных
+        await db('computer').where({ computer_id: computerId }).update({ active: updatedActive });
+
+        res.json({ message: `Состояние активности компьютера ${computerId} успешно изменено.` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.put('/computers/:computerId/changeEmployee', authenticateToken, async (req, res) => {
+    console.log(req.params)
+    try {
+        if (req.user.role !== 'Менеджер') {
+            console.log(req.user.role)
+            return res.status(403).json({ error: 'Недостаточно прав' });
+        }
+
+        const { computerId } = req.params;
+        const { newEmployee } = req.body
+        const currentEmployee = await db('employee').where('login', newEmployee).first()
+        console.log(currentEmployee.employee_id)
+        console.log(currentEmployee)
+        // Инвертируем состояние "active"
+
+        // Обновляем состояние "active" в базе данных
+        await db('computer').where({ computer_id: computerId }).update({ "employee_id": currentEmployee.employee_id });
+
+        res.json({ message: `Состояние активности компьютера ${computerId} успешно изменено.` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
+app.get('/computers', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'Менеджер' && (req.user.role !== "Администратор")) {
+        return res.status(403).json({ error: 'Не достаточно' });
+    }
     try {
         const computers = await db('computer').select('*').orderBy('computer_id', 'asc');
+        for (const computer of computers) {
+            const employeeid = computer.employee_id; // Предполагаем, что id администратора хранится в поле admin_id компьютера
+            const admin = await db('employee').select('login').where({ 'employee_id': employeeid }).first();
+            computer.admin_login = admin.login; // Добавляем логин администратора к объекту компьютера
+        }
         res.json(computers);
     } catch (error) {
         console.error(error);
@@ -529,15 +722,25 @@ app.put('/users/:id/recharge', authenticateToken, async (req, res) => {
 
     try {
         if (req.user.role !== 'Администратор') {
-            return res.status(403).json({ error: 'Forbidden: Only administrators can recharge balance' });
+            return res.status(403).json({ error: 'Недостаточно прав' });
+        }
+        if (amount <= 0) {
+            return res.status(400).json({ error: "Введена некорректная сумма" })
         }
         const userProfile = await db('userprofile')
             .where('user_id', userId)
             .increment('balance', amount)
             .returning('*');
+        const rechange = await db('payment')
+            .insert({
+                user_id: userId,
+                amount: amount,
+                date_time: new Date(),
+            });
+
 
         if (!userProfile || userProfile.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ error: 'Пользователь не найден' });
         }
 
         res.json(userProfile[0]);
@@ -546,6 +749,18 @@ app.put('/users/:id/recharge', authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
+app.get('/employee/:username', async (req, res) => {
+    const username = req.params.username;
+    try {
+        const employee = await db("employee").where("login", username).first();
+        res.json(employee.role_name); // Отправляем роль сотрудника в качестве ответа на запрос
+    } catch (error) {
+        console.error(error); // Выводим ошибку в консоль
+        res.status(500).json({ error: "Internal Server Error" }); // Отправляем статус 500 и сообщение об ошибке в случае исключения
+    }
+});
+
 
 app.get('/user/:id', async (req, res) => {
     const userId = req.params.id;
