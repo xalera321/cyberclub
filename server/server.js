@@ -67,7 +67,6 @@ function authenticateToken(req, res, next) {
             return res.status(403).json({ error: 'Forbidden: Invalid token' });
         }
         req.user = user;
-        console.log(token)
         next();
     });
 }
@@ -211,6 +210,11 @@ app.get('/users/:id', authenticateToken, async (req, res) => {
 
 app.get('/users/name/:name', authenticateToken, async (req, res) => {
     const name = req.params.name;
+    const userId = req.user.id;
+    const user = await db('userprofile').where('user_id', userId).first();
+    if (user.login !== name){
+        return res.status(500).json({ error: 'Forbidden' })
+    }
     console.log(name);
     try {
         const userProfile = await db('userprofile').where('login', name).select('*').first();
@@ -776,6 +780,19 @@ app.get('/user/:id', async (req, res) => {
     }
 });
 
+app.get('/rechanges', authenticateToken, async (req, res) => {
+    console.log('scsd')
+    try {
+        const userId = req.user.id; // Прямое использование req.user.id без parseInt()
+        const rechanges = await db('payment').where('user_id', userId);
+        res.json(rechanges);
+        console.log(rechanges);
+    } catch (error) {
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
 app.put('/users/:id/login', authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.id);
     const { newLogin } = req.body; // Предполагается, что новый логин передается в теле запроса как newLogin
@@ -807,28 +824,21 @@ app.put('/users/:id/login', authenticateToken, async (req, res) => {
 // Добавляем новый маршрут и обработчик для изменения пароля
 app.put('/users/:userId/password', async (req, res) => {
     const { userId } = req.params;
-    const { oldPassword, newPassword, confirmNewPassword } = req.body;
-
-    // Проверка соответствия нового пароля и его подтверждения
-    if (newPassword !== confirmNewPassword) {
-        return res.status(400).json({ message: 'New password and confirm password do not match' });
-    }
+    const { newPassword, currentPassword } = req.body;
 
     try {
         // Проверка соответствия старого пароля
-        const user = await User.findById(userId);
+        const user = await db('userprofile').where('user_id', userId).first();
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
-        }
-        const isPasswordValid = await bcrypt.compare(oldPassword, user.u_password);
-        if (!isPasswordValid) {
-            return res.status(401).json({ message: 'Invalid old password' });
-        }
+        };
+
+        if (user.u_password !== currentPassword) {
+            return res.status(401).json({ message: 'Invalid password' });
+        };
 
         // Обновление пароля пользователя
-        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-        user.u_password = hashedNewPassword;
-        await user.save();
+        newuser = await db('userprofile').where('user_id', userId).update({ u_password: newPassword }).returning('*');
 
         return res.status(200).json({ message: 'Password updated successfully' });
     } catch (error) {
