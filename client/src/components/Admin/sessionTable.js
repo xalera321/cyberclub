@@ -9,13 +9,8 @@ import 'react-toastify/dist/ReactToastify.css';
 
 function SessionTable() {
     const [userData, setUserData] = useState(null);
-    const [selectedUserId, setSelectedUserId] = useState(null);
     const [computers, setComputers] = useState([]);
-    const [duration, setDuration] = useState('');
     const [sessions, setSessions] = useState([]);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [usersPerPage] = useState(5);
-    const [selectedComputer, setSelectedComputer] = useState(null);
     const [isEndSessionModalOpen, setIsEndSessionModalOpen] = useState(false);
     const [selectedSessionId, setSelectedSessionId] = useState(null);
     const [currentPageSessions, setCurrentPageSessions] = useState(1); // Define currentPageSessions

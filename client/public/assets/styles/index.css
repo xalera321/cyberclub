@@ -1,0 +1,75 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+label,
+button,
+input,
+a {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 300;
+}
+
+.navbar-brand,
+.navbar-text,
+.nav-link,
+.btn {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 300;
+}
+
+.modal-title,
+.modal-body,
+.form-label,
+.form-control,
+.form-check-label,
+.btn-primary,
+.btn-warning,
+.text-decoration-underline {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 300;
+}
+
+.fs-5,
+.text-justify,
+.fs-6 {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 300;
+}
+
+.custom-slider-container {
+    max-width: 30%;
+    margin: auto;
+}
+
+a {
+    color: rgb(175, 175, 175) !important;
+}
+
+.toast-container {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    min-width: 250px;
+    max-width: 400px;
+    overflow: hidden;
+    z-index: 10000;
+}

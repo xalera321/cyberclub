@@ -1,13 +1,17 @@
 // App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import UserAuth from './pages/UserAuth';
+import LoginPage from './pages/LoginPage';
+import RegistrationPage from './pages/RegistrationPage';
 import AdminAuth from './pages/AdminAuth';
 import AdminPanel from './components/AdminPanel';
 import AccountPage from './pages/AccountPage';
+import ResetPasswordPage from './pages/ResetPasswordPage'; // добавлен импорт ResetPasswordPage
+import PasswordResetPage from './pages/PasswordResetPage';
 import Header from './components/Header'; // добавлен импорт
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import Main from './pages/Main'; // добавлен импорт компонента Main (предполагается, что ваш файл с главной страницей называется Main.js)
 
 function App() {
     const [loggedInUsername, setLoggedInUsername] = useState(localStorage.getItem('username'));
@@ -103,10 +107,14 @@ function App() {
         <Router>
             <Header loggedInUsername={loggedInUsername || loggedInUsernameAdmin} handleLogout={handleLogout} />
             <Routes>
+                <Route path="/" element={<Main />} />
+                <Route path="/login" element={<LoginPage onLogin={handleLogin} loginError={loginError} />} />
+                <Route path="/registration" element={<RegistrationPage onRegister={handleRegister} registrationError={registrationError} />} />
                 <Route path="/account" element={loggedInUsername ? <AccountPage username={loggedInUsername} handleLogout={handleLogout} setLoggedInUsername={setLoggedInUsername} /> : <Navigate to="/" />} />
-                <Route path="/" element={<UserAuth onLogin={handleLogin} onRegister={handleRegister} loginError={loginError} registrationError={registrationError} />} />
                 <Route path="/admin/login" element={<AdminAuth onLogin={handleAdminLogin} loginError={loginError} />} />
                 <Route path="/admin" element={loggedInUsernameAdmin ? <AdminPanel username={loggedInUsernameAdmin} handleLogout={handleLogout} /> : <Navigate to="/" />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/password-reset/:token" element={<PasswordResetPage />} />
             </Routes>
         </Router>
     );

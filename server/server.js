@@ -25,7 +25,7 @@ const db = knex({
     connection: {
         host: 'localhost',
         port: '5432',
-        user: 'xalera',
+        user: 'postgres',
         password: '123123123',
         database: 'cyberclub',
     },
@@ -202,6 +202,25 @@ app.get('/users/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         res.json(userProfile);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.get('/sessions/:id', authenticateToken, async (req, res) => {
+    const userId = parseInt(req.params.id);
+
+    if (req.user.role !== 'Администратор' && userId !== req.user.id) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    try {
+        const session = await db('session').where('user_id', userId).select('*').first();
+        if (!session) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json(session);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Internal Server Error' });
@@ -403,11 +422,13 @@ app.put('/users/:id/image', authenticateToken, async (req, res) => {
 
 app.post('/sessions/:id', authenticateToken, async (req, res) => { // старт сессии
     const user_id = parseInt(req.params.id);
+    console.log(user_id)
     const { duration, computer_id } = req.body;
     otherSession = await db('session').where('user_id', user_id).first();
     try {
         otherSession = await db('session').where('user_id', user_id).first();
         if (otherSession) {
+            console.log('1233')
             return res.status(403).json({ error: 'Сессия уже начата' })
         }
         if (duration <= 0) {
@@ -422,13 +443,14 @@ app.post('/sessions/:id', authenticateToken, async (req, res) => { // старт
         if (!user) {
             return res.status(404).json({ error: 'Пользователь не найден' });
         }
-
+        
         const computer = await db('computer').where('computer_id', computer_id);
         if (!computer) {
             return res.status(404).json({ error: 'Такого компьютера не существует' });
         }
-        console.log(computer)
-        if (!computer.active) {
+        console.log(computer.active)
+        if (computer.active) {
+            console.log('1234')
             return res.status(404).json({ error: 'Компьютер в данный момент не доступен!' });
         }
 
@@ -548,6 +570,8 @@ app.put('/sessions/end/:id', authenticateToken, async (req, res) => { // зав�
     }
 });
 
+
+
 app.post('/computers', authenticateToken, async (req, res) => {
 
     const { employee_id } = req.body;
@@ -638,9 +662,6 @@ app.put('/computers/:computerId/changeEmployee', authenticateToken, async (req, 
 
 
 app.get('/computers', authenticateToken, async (req, res) => {
-    if (req.user.role !== 'Менеджер' && (req.user.role !== "Администратор")) {
-        return res.status(403).json({ error: 'Не достаточно' });
-    }
     try {
         const computers = await db('computer').select('*').orderBy('computer_id', 'asc');
         for (const computer of computers) {
@@ -783,7 +804,8 @@ app.get('/user/:id', async (req, res) => {
 app.get('/rechanges', authenticateToken, async (req, res) => {
     console.log('scsd')
     try {
-        const userId = req.user.id; // Прямое использование req.user.id без parseInt()
+        const userId = parseInt(req.user.id); // Прямое использование req.user.id без parseInt()
+        console.log(userId)
         const rechanges = await db('payment').where('user_id', userId);
         res.json(rechanges);
         console.log(rechanges);
@@ -821,62 +843,26 @@ app.put('/users/:id/login', authenticateToken, async (req, res) => {
     }
 });
 
-// Добавляем новый маршрут и обработчик для изменения пароля
-app.put('/users/:userId/password', async (req, res) => {
-    const { userId } = req.params;
-    const { newPassword, currentPassword } = req.body;
+// Объект для временного хранения кодов подтверждения
+const confirmationCodes = {};
+
+app.post('/change-email', authenticateToken, async (req, res) => {
+    const { newEmail } = req.body;
+    const userId = req.user.id;
 
     try {
-        // Проверка соответствия старого пароля
-        const user = await db('userprofile').where('user_id', userId).first();
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        };
+        // Генерируем случайный четырехзначный код
+        const confirmationCode = Math.floor(1000 + Math.random() * 9000);
 
-        if (user.u_password !== currentPassword) {
-            return res.status(401).json({ message: 'Invalid password' });
-        };
-
-        // Обновление пароля пользователя
-        newuser = await db('userprofile').where('user_id', userId).update({ u_password: newPassword }).returning('*');
-
-        return res.status(200).json({ message: 'Password updated successfully' });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
-// Добавляем маршрут для отправки письма с подтверждением изменения почты
-app.put('/users/:id/email', authenticateToken, async (req, res) => {
-    const userId = parseInt(req.params.id);
-    const { newEmail } = req.body; // Предполагается, что новый email передается в теле запроса как newEmail
-
-    try {
-        if (userId !== req.user.id) {
-            return res.status(403).json({ error: 'Forbidden' });
-        }
-
-        // Проверяем, существует ли пользователь с заданным новым email
-        const existingUserWithEmail = await db('userprofile').where('email', newEmail).first();
-        if (existingUserWithEmail) {
-            return res.status(400).json({ error: 'User with this email already exists' });
-        }
-
-        // Отправляем письмо с подтверждением на новый email
-        const token = jwt.sign({ userId, newEmail }, 'emailChangeToken', { expiresIn: '1h' });
-        const confirmationLink = `http://localhost:8080/confirm-email/${token}`;
-
+        // Отправляем письмо с кодом подтверждения на новый адрес
         transporter.sendMail({
             to: newEmail,
             subject: 'Подтверждение изменения почты',
-            text: 'Подтверждение изменения почты',
-            html: `
-                <h1>Подтвердите изменение почты!</h1>
-                <p>Для подтверждения изменения вашего адреса электронной почты перейдите по <a href="${confirmationLink}">ссылке</a>.</p>
-            `
+            text: `Код подтверждения: ${confirmationCode}`,
         }).then(async () => {
-            console.info("Письмо с подтверждением успешно отправлено на адрес: ", newEmail);
+            console.info("Письмо с кодом подтверждения успешно отправлено на адрес: ", newEmail);
+            // Сохраняем код подтверждения в временном хранилище
+            confirmationCodes[userId] = confirmationCode;
             res.status(200).json({ message: 'Confirmation email sent successfully' });
         }).catch(err => {
             console.warn("Произошла ошибка при отправке сообщения:", err);
@@ -888,25 +874,89 @@ app.put('/users/:id/email', authenticateToken, async (req, res) => {
     }
 });
 
-// Добавляем маршрут для обработки подтверждения изменения почты
-app.get('/confirm-email/:token', async (req, res) => {
-    const token = req.params.token;
+app.post('/confirm-email', authenticateToken, async (req, res) => {
+    const { confirmationCode, new_email } = req.body; // Получаем confirmationCode и new_email из тела запроса
+    const userId = req.user.id; // Получаем идентификатор пользователя из аутентификационного токена
+
     try {
-        const { userId, newEmail } = jwt.verify(token, 'emailChangeToken');
-        const user = await db('userprofile').where('user_id', userId).first();
-        if (!user) {
-            return res.status(404).json({ error: "User not found" })
+        // Получаем сохраненный код подтверждения для пользователя
+        const savedConfirmationCode = confirmationCodes[userId];
+
+        // Проверяем, совпадает ли переданный код с сохраненным кодом подтверждения
+        if (!savedConfirmationCode || savedConfirmationCode !== parseInt(confirmationCode)) {
+            return res.status(400).json({ error: 'Invalid confirmation code' });
         }
 
-        // Обновляем адрес электронной почты пользователя
-        await db('userprofile').where('user_id', userId).update({ email: newEmail });
+        // Удаляем сохраненный код подтверждения после его использования
+        delete confirmationCodes[userId];
 
-        res.status(200).json({ message: 'Email changed successfully' });
+        // Обновляем почту пользователя в базе данных на новую
+        await db('userprofile').where('user_id', userId).update({
+            email: new_email
+        });
+
+        res.status(200).json({ message: 'Email updated successfully' });
     } catch (error) {
         console.error(error);
-        res.status(400).json({ error: 'Invalid or expired token' });
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
+app.post('/password-reset-request', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        const user = await db('userprofile').where('email', email).first();
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Генерация токена сброса пароля
+        const resetToken = jwt.sign({ userId: user.user_id }, JWT_SECRET, { expiresIn: '1h' });
+
+        // Отправка письма с токеном сброса пароля
+        transporter.sendMail({
+            to: email,
+            subject: 'Сброс пароля',
+            text: 'Сброс пароля',
+            html: `<h1>Сбросить пароль</h1>
+            <p>Для сброса пароля перейдите по <a href="http://localhost:3000/password-reset/${resetToken}">ссылке</a>.</p>`
+        });
+
+        res.status(200).json({ message: 'Password reset link sent successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.post('/password-reset/:token', async (req, res) => {
+    const { token } = req.params;
+    const { newPassword } = req.body;
+    console.log('yspex')
+    try {
+        // Проверка токена сброса пароля
+        jwt.verify(token, JWT_SECRET, async (err, decoded) => {
+            if (err) {
+                console.error(err);
+                return res.status(400).json({ error: 'Invalid or expired token' });
+            }
+
+            const { userId } = decoded;
+
+            // Обновление пароля пользователя
+            await db('userprofile').where('user_id', userId).update({
+                u_password: newPassword
+            });
+
+            res.status(200).json({ message: 'Password reset successfully' });
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 
 
 app.listen(8080, () => {
