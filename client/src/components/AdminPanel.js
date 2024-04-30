@@ -23,8 +23,7 @@ function AdminPanel({ handleLogout, setLoggedInUsernameAdmin }) {
     }
 
     const handleLogoutAndRedirect = () => {
-        handleLogout(); // Выход из аккаунта
-        setLoggedInUsernameAdmin(null); // Сброс имени пользователя
+        handleLogout();
         return <Navigate to="/" replace />; // Перенаправление на главную страницу
     };
 

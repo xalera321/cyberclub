@@ -7,17 +7,40 @@ function LoginPage({ onLogin, loginError }) {
         u_password: ''
     });
 
+    const [validity, setValidity] = useState({
+        login: true,
+        u_password: true
+    });
+
+    const [showValidation, setShowValidation] = useState(false);
+
     const navigate = useNavigate();
 
     const handleLoginChange = (e) => {
-        setLoginFormData({ ...loginFormData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setLoginFormData({ ...loginFormData, [name]: value });
     };
 
     const handleLoginSubmit = async (e) => {
         e.preventDefault();
-        const isSuccess = await onLogin(loginFormData);
-        if (isSuccess) {
-            navigate('/account');
+        setShowValidation(true); // Показываем сообщения о валидации после нажатия кнопки "Войти"
+
+        // Проверяем валидность данных, только если они были заполнены
+        const isLoginValid = loginFormData.login.trim() === '' ? true : /^[a-zA-Z0-9_]+$/.test(loginFormData.login);
+        const isPasswordValid = loginFormData.u_password.trim() === '' ? true : /^(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*#?&><)(^-_])[A-Za-z\d@$!%*#?&><)(^-_]{8,100}$/.test(loginFormData.u_password);
+
+        // Устанавливаем состояние валидности
+        setValidity({
+            login: isLoginValid,
+            u_password: isPasswordValid
+        });
+
+        // Если все данные валидны, выполняем вход
+        if (isLoginValid && isPasswordValid) {
+            const isSuccess = await onLogin(loginFormData);
+            if (isSuccess) {
+                navigate('/account');
+            }
         }
     };
 
@@ -28,13 +51,15 @@ function LoginPage({ onLogin, loginError }) {
                     <div className="card">
                         <div className="card-body">
                             <h2 className="text-center mb-4">Вход</h2>
-                            {loginError && <p className="text-danger text-center">{loginError}</p>}
+                            {loginError && showValidation && <p className="text-danger text-center">{loginError}</p>}
                             <form onSubmit={handleLoginSubmit}>
                                 <div className="mb-3">
                                     <input type="text" className="form-control" name="login" placeholder="Логин" value={loginFormData.login} onChange={handleLoginChange} />
+                                    {!validity.login && showValidation && <p className="text-danger">Логин состоит из латинских букв, цифр или знака _</p>}
                                 </div>
                                 <div className="mb-3">
                                     <input type="password" className="form-control" name="u_password" placeholder="Пароль" value={loginFormData.u_password} onChange={handleLoginChange} />
+                                    {!validity.u_password && showValidation && <p className="text-danger">Пароль состоит  из ВЕРХНИХ и строчных латинских букв, сле специальные символы: .@$!%*#?&amp;&gt;&lt;)(^-_ и состоит из 8-100 символов</p>}
                                 </div>
                                 <p className="text-right"><Link to="/reset-password">Забыли пароль?</Link></p>
                                 <button type="submit" className="btn btn-primary btn-block">Войти</button>

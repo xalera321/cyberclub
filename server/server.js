@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.mail.ru',
@@ -88,6 +89,10 @@ const defaultAvatarPath = 'uploads/default_avatar.png';
 app.post('/register', async (req, res) => {
     const { login, email, u_password } = req.body;
 
+    if (login.includes(' ') || email.includes(' ') || u_password.includes(' ')) {
+        return res.status(400).json({ error: 'Spaces are not allowed in login, email, or password.' });
+    }
+
     try {
         const existingUser = await db('userprofile').where('login', login).orWhere('email', email).first();
         if (existingUser) {
@@ -97,6 +102,8 @@ app.post('/register', async (req, res) => {
                 return res.status(400).json({ error: 'User with this email already exists' });
             }
         }
+
+        const hashedPassword = await bcrypt.hash(u_password, 10);
 
         const token = jwt.sign({ login, email }, 'cyberclubregistration', { expiresIn: '1h' });
 
@@ -114,7 +121,7 @@ app.post('/register', async (req, res) => {
             const newUser = await db('userprofile').insert({
                 login,
                 email,
-                u_password,
+                u_password: hashedPassword,
                 confirmed: false,
                 bonus_points: 0,
                 avatar_path: defaultAvatarPath // Устанавливаем путь к аватарке по умолчанию
@@ -134,15 +141,21 @@ app.post('/register', async (req, res) => {
 app.get('/confirm/:token', async (req, res) => {
     const token = req.params.token;
     try {
-        const verifyToken = jwt.verify(token, 'cyberclubregistration')
+        const verifyToken = jwt.verify(token, 'cyberclubregistration');
         const { login, email } = verifyToken;
-        console.log(login, email)
+        console.log(login, email);
         const user = await db('userprofile').where({ login }).andWhere({ email }).first();
         if (!user) {
-            return res.status(404).json({ error: "User not found" })
+            return res.status(404).json({ error: "User not found" });
         }
+        // Проверяем, подтвержден ли уже аккаунт
+        if (user.confirmed) {
+            return res.status(400).json({ error: "Account already confirmed" });
+        }
+        // Подтверждаем аккаунт и начисляем бонусные баллы
         await db('userprofile').where({ login, email }).update({ confirmed: true });
-        res.status(200).json({ message: 'Account confirmed successfully' });
+        await db('userprofile').where({ login, email }).increment('bonus_points', 500);
+        res.status(200).json({ message: 'Account confirmed successfully. 500 bonus points added.' });
     } catch (error) {
         console.error(error);
         res.status(400).json({ error: 'Invalid or expired token' });
@@ -152,13 +165,18 @@ app.get('/confirm/:token', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { login, u_password } = req.body;
     try {
-        const user = await db('userprofile').where({ login, u_password }).first();
+        const user = await db('userprofile').where({ login }).first();
         if (!user) {
-            return res.status(401).json({ error: 'Invalid login or password' });
+            return res.status(404).json({ error: 'User not found' });
         }
-        if (!user.confirmed) {
-            return res.status(401).json({ error: "Account is not confirmed" });
+
+        // Сравнение введенного пароля с хэшированным паролем в базе данных
+        const passwordMatch = await bcrypt.compare(u_password, user.u_password);
+        if (!passwordMatch) {
+            return res.status(401).json({ error: 'Incorrect password' });
         }
+
+        // Если пароль совпадает, создаем и возвращаем JWT токен
         const accessToken = jwt.sign({ id: user.user_id }, JWT_SECRET);
         res.json({ accessToken, username: user.login }); // Добавляем имя пользователя в ответ
         console.log(`User ${user.login} has logged in`); // Выводим имя пользователя в консоль
@@ -167,6 +185,7 @@ app.post('/login', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
 
 app.post('/admin/login', async (req, res) => {
     const { login, e_password } = req.body;
@@ -230,22 +249,25 @@ app.get('/sessions/:id', authenticateToken, async (req, res) => {
 app.get('/users/name/:name', authenticateToken, async (req, res) => {
     const name = req.params.name;
     const userId = req.user.id;
-    const user = await db('userprofile').where('user_id', userId).first();
-    if (user.login !== name){
-        return res.status(500).json({ error: 'Forbidden' })
-    }
-    console.log(name);
     try {
-        const userProfile = await db('userprofile').where('login', name).select('*').first();
+        const user = await db('userprofile').where('user_id', userId).first();
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        if (user.login !== name) {
+            return res.status(500).json({ error: 'Forbidden' })
+        }
+        console.log(name);
+        const userProfile = await db('userprofile').where('login', name).first();
         if (!userProfile) {
             return res.status(404).json({ error: 'User not found' });
         }
         res.json(userProfile);
     } catch (error) {
-        console.error(error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
 
 app.put('/users/:id', authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.id);
@@ -284,7 +306,9 @@ app.put('/users/:id', authenticateToken, async (req, res) => {
 
         const updatedUser = await db('userprofile')
             .where('user_id', userId)
-            .update(updatedUserData)
+            .update({
+                u_password: hashedPassword,
+            })
             .returning('*');
 
         res.json(updatedUser[0]);
@@ -930,12 +954,13 @@ app.post('/password-reset-request', async (req, res) => {
     }
 });
 
+// Сброс пароля по токену
 app.post('/password-reset/:token', async (req, res) => {
     const { token } = req.params;
     const { newPassword } = req.body;
-    console.log('yspex')
+
     try {
-        // Проверка токена сброса пароля
+        // Декодирование токена сброса пароля
         jwt.verify(token, JWT_SECRET, async (err, decoded) => {
             if (err) {
                 console.error(err);
@@ -944,9 +969,12 @@ app.post('/password-reset/:token', async (req, res) => {
 
             const { userId } = decoded;
 
-            // Обновление пароля пользователя
+            // Хэширование нового пароля
+            const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+            // Обновление пароля пользователя в базе данных
             await db('userprofile').where('user_id', userId).update({
-                u_password: newPassword
+                u_password: hashedNewPassword
             });
 
             res.status(200).json({ message: 'Password reset successfully' });

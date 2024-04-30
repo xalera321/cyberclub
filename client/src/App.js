@@ -42,7 +42,6 @@ function App() {
             setLoggedInUsername(null);
             localStorage.removeItem('username');
             Cookies.remove('token');
-            setLoginError('Failed to login. Please check your credentials.');
             return false;
         }
     };

@@ -1,4 +1,6 @@
+// Register.js
 import React, { useState } from 'react';
+import { Form, Button, Alert } from 'react-bootstrap';
 
 const Register = ({ onRegister, registrationError }) => {
     const [formData, setFormData] = useState({
@@ -6,26 +8,35 @@ const Register = ({ onRegister, registrationError }) => {
         password: ''
     });
 
+    const [validity, setValidity] = useState({
+        username: true,
+        password: true
+    });
+
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+
+        // Проверка валидности и обновление состояния валидности
+        if (name === 'username') {
+            const isValid = /^[a-zA-Z0-9_]+$/.test(value);
+            setValidity({ ...validity, [name]: isValid });
+        } else if (name === 'password') {
+            const isValid = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(value);
+            setValidity({ ...validity, [name]: isValid });
+        }
+
+        setFormData({ ...formData, [name]: value });
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onRegister(formData);
-    };
 
-    return (
-        <div>
-            <h2>Register</h2>
-            {registrationError && <p>{registrationError}</p>}
-            <form onSubmit={handleSubmit}>
-                <input type="text" name="username" placeholder="Username" onChange={handleChange} />
-                <input type="password" name="password" placeholder="Password" onChange={handleChange} />
-                <button type="submit">Register</button>
-            </form>
-        </div>
-    );
+        // Проверка валидности перед отправкой
+        const isFormValid = Object.values(validity).every((value) => value);
+        if (isFormValid) {
+            onRegister(formData);
+        }
+    };
 }
 
 export default Register;

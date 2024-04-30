@@ -33,10 +33,26 @@ function PasswordResetPage() {
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [showValidation, setShowValidation] = useState(false); // Состояние для отображения сообщений о валидации
+    const [validPassword, setValidPassword] = useState(true); // Состояние валидности пароля
     const { token } = useParams(); // Получаем параметр токена из URL
+
+    const handlePasswordChange = (e) => {
+        const newPassword = e.target.value;
+        setPassword(newPassword);
+    };
 
     const handlePasswordReset = async (e) => {
         e.preventDefault();
+        setShowValidation(true); // Показываем сообщения о валидации после нажатия кнопки "Сбросить пароль"
+        // Проверка валидности пароля
+        const isPasswordValid = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*#?&><)(^-_])[A-Za-z\d@$!%*#?&><)(^-_]{8,100}$/.test(password);
+        setValidPassword(isPasswordValid);
+
+        if (!isPasswordValid) {
+            return; // Прерываем отправку формы, если пароль невалиден
+        }
+
         try {
             const response = await axios.post(`http://localhost:8080/password-reset/${token}`, { newPassword: password });
             setMessage(response.data.message);
@@ -60,10 +76,11 @@ function PasswordResetPage() {
                         type="password"
                         placeholder="Введите новый пароль"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={handlePasswordChange}
                         required
                         className="mb-3"
                     />
+                    {showValidation && !validPassword && <p className="text-danger">Пароль должен содержать верхние и строчные латинские буквы, специальные символы: .@$!%*#?&amp;&gt;&lt;)(^-_, и быть длиной от 8 до 100 символов.</p>}
                 </Form.Group>
                 <Button variant="primary" type="submit" className="w-100">Сбросить пароль</Button>
             </Form>

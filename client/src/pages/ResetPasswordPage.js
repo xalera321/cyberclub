@@ -8,11 +8,16 @@ import 'react-toastify/dist/ReactToastify.css';
 const ResetPasswordPage = () => {
     const [email, setEmail] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [emailValid, setEmailValid] = useState(false); // Устанавливаем изначальное значение как false
     const [resetError, setResetError] = useState('');
     const [resetSuccess, setResetSuccess] = useState(false);
+    const [buttonClicked, setButtonClicked] = useState(false); // Состояние для отслеживания нажатия кнопки
 
     const handleEmailChange = (event) => {
-        setEmail(event.target.value);
+        const { value } = event.target;
+        setEmail(value);
+        // При изменении почты сбрасываем состояние валидации
+        setEmailValid(false);
     };
 
     const handleNewPasswordChange = (event) => {
@@ -20,11 +25,19 @@ const ResetPasswordPage = () => {
     };
 
     const handleResetPasswordRequest = async () => {
-        try {
-            await axios.post('http://localhost:8080/password-reset-request', { email });
-            showInfoToast('Проверьте свою электронную почту');
-        } catch (error) {
-            showErrorToast(error.response.data.error);
+        // Устанавливаем состояние нажатия кнопки в true
+        setButtonClicked(true);
+
+        // Проверяем валидность почты
+        setEmailValid(validateEmail(email));
+
+        if (validateEmail(email)) {
+            try {
+                await axios.post('http://localhost:8080/password-reset-request', { email });
+                showInfoToast('Проверьте свою электронную почту');
+            } catch (error) {
+                showErrorToast(error.response.data.error);
+            }
         }
     };
 
@@ -36,6 +49,10 @@ const ResetPasswordPage = () => {
         } catch (error) {
             showErrorToast(error.response.data.error);
         }
+    };
+
+    const validateEmail = (email) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); // Проверка валидности почты
     };
 
     const showErrorToast = (errorMessage) => {
@@ -77,7 +94,9 @@ const ResetPasswordPage = () => {
                                             placeholder="Введите ваш email"
                                             value={email}
                                             onChange={handleEmailChange}
+                                            isInvalid={buttonClicked && !emailValid} // Показываем ошибку только после нажатия кнопки
                                         />
+                                        <Form.Control.Feedback type="invalid">Введите корректный адрес электронной почты</Form.Control.Feedback>
                                     </Form.Group>
                                 )}
                                 {window.location.pathname.includes('password-reset') && (
