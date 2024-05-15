@@ -1,3 +1,4 @@
+
 // App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
@@ -6,6 +7,7 @@ import RegistrationPage from './pages/RegistrationPage';
 import AdminAuth from './pages/AdminAuth';
 import AdminPanel from './components/AdminPanel';
 import AccountPage from './pages/AccountPage';
+import AboutUs from './pages/AboutUs';
 import ResetPasswordPage from './pages/ResetPasswordPage'; // добавлен импорт ResetPasswordPage
 import PasswordResetPage from './pages/PasswordResetPage';
 import Header from './components/Header'; // добавлен импорт
@@ -107,6 +109,7 @@ function App() {
             <Header loggedInUsername={loggedInUsername || loggedInUsernameAdmin} handleLogout={handleLogout} />
             <Routes>
                 <Route path="/" element={<Main />} />
+                <Route path="/about" element={<AboutUs />} />
                 <Route path="/login" element={<LoginPage onLogin={handleLogin} loginError={loginError} />} />
                 <Route path="/registration" element={<RegistrationPage onRegister={handleRegister} registrationError={registrationError} />} />
                 <Route path="/account" element={loggedInUsername ? <AccountPage username={loggedInUsername} handleLogout={handleLogout} setLoggedInUsername={setLoggedInUsername} /> : <Navigate to="/" />} />

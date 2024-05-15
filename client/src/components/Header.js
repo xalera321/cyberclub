@@ -54,20 +54,21 @@ const Header = ({ loggedInUsername }) => {
         <header>
             <nav className="navbar mb-1 navbar-expand-lg shadow bg-dark">
                 <div className="container-fluid">
-                    <Link className="navbar-brand text-white" to="/">CyberClub</Link>
+                    <Link className="navbar-brand" to="/"><img src='logo.png' height={60} alt='logo'></img></Link>
                     <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
                         <span className="navbar-toggler-icon"></span>
                     </button>
                     <div className="collapse navbar-collapse justify-content-center" id="navbarText">
                         <ul className="navbar-nav mb-3 mb-lg-0">
                             <li className="nav-item mx-3">
-                                <a className="nav-link text-white" href="about_us.html">О нас</a>
+                                <Link className="nav-link text-white" to="/">Главная</Link>
                             </li>
                             <li className="nav-item mx-3">
-                                <a className="nav-link text-white" href="#">Контакты</a>
+                                <Link className="nav-link text-white" to="/about">О нас</Link>
                             </li>
                         </ul>
                     </div>
+
                     <div className="navbar-text text-white">
                         {loggedInUsername && avatar ? (
                             <Link to="/account">

@@ -57,7 +57,7 @@ function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
 
     if (!authHeader) {
-        return res.status(401).json({ error: 'Unauthorized: No token provided' });
+        return res.status(401).json({ message: 'Unauthorized: No token provided' });
     }
 
     const token = authHeader.split(' ')[1];
@@ -65,7 +65,7 @@ function authenticateToken(req, res, next) {
     jwt.verify(token, JWT_SECRET, (err, user) => {
         if (err) {
             console.error(err);
-            return res.status(403).json({ error: 'Forbidden: Invalid token' });
+            return res.status(403).json({ message: 'Forbidden: Invalid token' });
         }
         req.user = user;
         next();
@@ -89,17 +89,17 @@ const defaultAvatarPath = 'uploads/default_avatar.png';
 app.post('/register', async (req, res) => {
     const { login, email, u_password } = req.body;
 
-    if (login.includes(' ') || email.includes(' ') || u_password.includes(' ')) {
-        return res.status(400).json({ error: 'Spaces are not allowed in login, email, or password.' });
+    if (!login || !email || !u_password || login.includes(' ') || email.includes(' ') || u_password.includes(' ')) {
+        return res.status(400).json({ message: 'Invalid data format or spaces are not allowed in login, email, or password.' });
     }
 
     try {
         const existingUser = await db('userprofile').where('login', login).orWhere('email', email).first();
         if (existingUser) {
             if (existingUser.login === login) {
-                return res.status(400).json({ error: 'User with this login already exists' });
+                return res.status(400).json({ message: 'User with this login already exists' });
             } else {
-                return res.status(400).json({ error: 'User with this email already exists' });
+                return res.status(400).json({ message: 'User with this email already exists' });
             }
         }
 
@@ -114,7 +114,7 @@ app.post('/register', async (req, res) => {
             html: `<h1>Подтвердите регистрацию!</h1>
         <p>Уважаемый ${login}, благодарим вас за регистрацию на сайте компьютерного клуба CyberClub  
         <p>Для подтверждения вашей учетной записи перейдите по <a href="http://localhost:8080/confirm/${token}">ссылке</a>.</p>
-        <p>Обращаем ваше внимание, что это письмо отправлено автоматически и отвечать на него не нужно</p>
+        <p>Обращаем ваше внимание, что это письмо отправлено автоматически и отвечать на него не нужно!</p>
           `
         }).then(async () => {
             console.info("Письмо успешно отправлено на адрес: ", email);
@@ -134,7 +134,7 @@ app.post('/register', async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -143,14 +143,13 @@ app.get('/confirm/:token', async (req, res) => {
     try {
         const verifyToken = jwt.verify(token, 'cyberclubregistration');
         const { login, email } = verifyToken;
-        console.log(login, email);
         const user = await db('userprofile').where({ login }).andWhere({ email }).first();
         if (!user) {
-            return res.status(404).json({ error: "User not found" });
+            return res.status(404).json({ message: "User not found" });
         }
         // Проверяем, подтвержден ли уже аккаунт
         if (user.confirmed) {
-            return res.status(400).json({ error: "Account already confirmed" });
+            return res.status(400).json({ message: "Account already confirmed" });
         }
         // Подтверждаем аккаунт и начисляем бонусные баллы
         await db('userprofile').where({ login, email }).update({ confirmed: true });
@@ -158,7 +157,7 @@ app.get('/confirm/:token', async (req, res) => {
         res.status(200).json({ message: 'Account confirmed successfully. 500 bonus points added.' });
     } catch (error) {
         console.error(error);
-        res.status(400).json({ error: 'Invalid or expired token' });
+        res.status(400).json({ message: 'Invalid or expired token' });
     }
 });
 
@@ -167,22 +166,21 @@ app.post('/login', async (req, res) => {
     try {
         const user = await db('userprofile').where({ login }).first();
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
 
         // Сравнение введенного пароля с хэшированным паролем в базе данных
         const passwordMatch = await bcrypt.compare(u_password, user.u_password);
         if (!passwordMatch) {
-            return res.status(401).json({ error: 'Incorrect password' });
+            return res.status(401).json({ message: 'Incorrect password' });
         }
 
         // Если пароль совпадает, создаем и возвращаем JWT токен
         const accessToken = jwt.sign({ id: user.user_id }, JWT_SECRET);
-        res.json({ accessToken, username: user.login }); // Добавляем имя пользователя в ответ
-        console.log(`User ${user.login} has logged in`); // Выводим имя пользователя в консоль
+        res.json({ accessToken, username: user.login });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -193,7 +191,7 @@ app.post('/admin/login', async (req, res) => {
     try {
         const employee = await db('employee').where({ login, e_password }).first();
         if (!employee) {
-            return res.status(401).json({ error: 'Invalid login or password' });
+            return res.status(401).json({ message: 'Invalid login or password' });
         }
 
         const accessToken = jwt.sign({ employee_id: employee.employee_id, role: employee.role_name, username: employee.login }, JWT_SECRET);
@@ -202,28 +200,26 @@ app.post('/admin/login', async (req, res) => {
         res.json({ accessToken, username, active });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
 app.get('/users/:id', authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.id);
-    console.log('userId:', userId);
-    console.log('req.user.id:', req.user.id);
 
     if (req.user.role !== 'Администратор' && userId !== req.user.id) {
-        return res.status(403).json({ error: 'Forbidden' });
+        return res.status(403).json({ message: 'Forbidden' });
     }
 
     try {
         const userProfile = await db('userprofile').where('user_id', userId).select('*').first();
         if (!userProfile) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
         res.json(userProfile);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -231,18 +227,18 @@ app.get('/sessions/:id', authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.id);
 
     if (req.user.role !== 'Администратор' && userId !== req.user.id) {
-        return res.status(403).json({ error: 'Forbidden' });
+        return res.status(403).json({ message: 'Forbidden' });
     }
 
     try {
         const session = await db('session').where('user_id', userId).select('*').first();
         if (!session) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
         res.json(session);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -252,19 +248,51 @@ app.get('/users/name/:name', authenticateToken, async (req, res) => {
     try {
         const user = await db('userprofile').where('user_id', userId).first();
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
         if (user.login !== name) {
-            return res.status(500).json({ error: 'Forbidden' })
+            return res.status(500).json({ message: 'Forbidden' })
         }
-        console.log(name);
         const userProfile = await db('userprofile').where('login', name).first();
         if (!userProfile) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
         res.json(userProfile);
     } catch (error) {
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+
+app.put('/users/:id/password', authenticateToken, async (req, res) => {
+    const userId = parseInt(req.params.id);
+    const { newPassword, currentPassword } = req.body;
+
+    try {
+        // Проверяем, существует ли пользователь с заданным ID
+        const user = await db('userprofile').where('user_id', userId).first();
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Проверяем, соответствует ли текущий пароль паролю пользователя в базе данных
+        const passwordMatch = await bcrypt.compare(currentPassword, user.u_password);
+        if (!passwordMatch) {
+            return res.status(400).json({ message: 'Current password is incorrect' });
+        }
+
+        // Хэшируем новый пароль
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+        // Обновляем пароль пользователя в базе данных
+        await db('userprofile').where('user_id', userId).update({
+            u_password: hashedNewPassword
+        });
+
+        res.status(200).json({ message: 'Password updated successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -276,14 +304,20 @@ app.put('/users/:id', authenticateToken, async (req, res) => {
 
     try {
         if (req.user.role !== 'Администратор' && userId !== req.user.id) {
-            return res.status(403).json({ error: 'Forbidden' });
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        // Хэшируем пароль, если он был передан
+        let hashedPassword;
+        if (u_password) {
+            hashedPassword = await bcrypt.hash(u_password, 10);
         }
 
         // Проверяем, был ли передан новый логин и не совпадает ли он с текущим
         if (login && login !== user.login) {
             const existingLoginUser = await db('userprofile').whereNot('user_id', userId).andWhere('login', login).first();
             if (existingLoginUser) {
-                return res.status(400).json({ error: 'Логин уже используется другим пользователем' });
+                return res.status(400).json({ message: 'Логин уже используется другим пользователем' });
             }
         }
 
@@ -291,14 +325,14 @@ app.put('/users/:id', authenticateToken, async (req, res) => {
         if (email && email !== user.email) {
             const existingEmailUser = await db('userprofile').whereNot('user_id', userId).andWhere('email', email).first();
             if (existingEmailUser) {
-                return res.status(400).json({ error: 'Email уже используется другим пользователем' });
+                return res.status(400).json({ message: 'Email уже используется другим пользователем' });
             }
         }
 
         // Обновляем только те поля, которые были переданы в запросе
         const updatedUserData = {
             login: login || user.login,
-            u_password,
+            u_password: hashedPassword || user.u_password, // Используем хэшированный пароль или текущий, если новый не был передан
             email: email || user.email,
             account_image,
             balance
@@ -306,21 +340,20 @@ app.put('/users/:id', authenticateToken, async (req, res) => {
 
         const updatedUser = await db('userprofile')
             .where('user_id', userId)
-            .update({
-                u_password: hashedPassword,
-            })
+            .update(updatedUserData)
             .returning('*');
 
         res.json(updatedUser[0]);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
+
 function gen_password(len) {
     var password = "";
-    var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!№;%:?*()_+=";
+    var symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!№;%:?@*()_+=";
     for (var i = 0; i < len; i++) {
         password += symbols.charAt(Math.floor(Math.random() * symbols.length));
     }
@@ -333,11 +366,11 @@ app.post('/employees/', authenticateToken, async (req, res) => {
     const e_password = gen_password(10);
     try {
         if (req.user.role !== 'Менеджер') {
-            return res.status(403).json({ error: 'Недостаточно прав' });
+            return res.status(403).json({ message: 'Недостаточно прав' });
         }
 
         if (employee) {
-            return res.status(400).json({ error: 'Логин уже используется другим пользователем' });
+            return res.status(400).json({ message: 'Логин уже используется другим пользователем' });
         }
 
         const newEmployeeData = {
@@ -367,27 +400,25 @@ app.post('/employees/', authenticateToken, async (req, res) => {
         res.json(newEmployeeData[0]);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
 app.put('/employees/:id', authenticateToken, async (req, res) => {
     const employeeId = parseInt(req.params.id);
-    console.log('успех')
     const { login, role_name, active } = req.body;
     const employee = await db('employee').where('employee_id', employeeId).first(); // Получаем пользователя по его идентификатору
 
     try {
-        console.log(req.user.role)
         if (req.user.role !== 'Менеджер') {
-            return res.status(403).json({ error: 'Недостаточно прав' });
+            return res.status(403).json({ message: 'Недостаточно прав' });
         }
 
         // Проверяем, был ли передан новый логин и не совпадает ли он с текущим
         if (login && login !== employee.login) {
             const existingLogin = await db('employee').whereNot('employee_id', employeeId).andWhere('login', login).first();
             if (existingLogin) {
-                return res.status(400).json({ error: 'Логин уже используется другим пользователем' });
+                return res.status(400).json({ message: 'Логин уже используется другим пользователем' });
             }
         }
 
@@ -398,7 +429,6 @@ app.put('/employees/:id', authenticateToken, async (req, res) => {
             role_name: role_name || employee.role_name,
             active: active
         };
-        console.log(updatedEmployeeData.active)
 
         const updatedEmployee = await db('employee')
             .where('employee_id', employeeId)
@@ -408,7 +438,7 @@ app.put('/employees/:id', authenticateToken, async (req, res) => {
         res.json(updatedEmployee[0]);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -420,7 +450,7 @@ app.get('/employees', authenticateToken, async (req, res) => {
         res.json(employees);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -430,7 +460,7 @@ app.put('/users/:id/image', authenticateToken, async (req, res) => {
     const { account_image } = req.body;
     try {
         if (userId !== req.user.id) {
-            return res.status(403).json({ error: 'Forbidden' });
+            return res.status(403).json({ message: 'Forbidden' });
         }
 
         const updatedUser = await db('userprofile')
@@ -440,56 +470,63 @@ app.put('/users/:id/image', authenticateToken, async (req, res) => {
         res.json(updatedUser[0]);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
 app.post('/sessions/:id', authenticateToken, async (req, res) => { // старт сессии
     const user_id = parseInt(req.params.id);
-    console.log(user_id)
-    const { duration, computer_id } = req.body;
-    otherSession = await db('session').where('user_id', user_id).first();
+    const { duration, computer_id, bonus_points } = req.body; // Добавление bonus_points из запроса
+
     try {
-        otherSession = await db('session').where('user_id', user_id).first();
+        const otherSession = await db('session').where('user_id', user_id).first();
         if (otherSession) {
-            console.log('1233')
-            return res.status(403).json({ error: 'Сессия уже начата' })
+            return res.status(403).json({ message: 'Сессия уже начата' });
         }
+
         if (duration <= 0) {
-            return res.status(403).json({ error: 'Продолжительность сессии должна быть больше 0' });
+            return res.status(403).json({ message: 'Продолжительность сессии должна быть больше 0' });
         }
 
         if (req.user.role !== 'Администратор' && user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Недостаточно прав' });
+            return res.status(403).json({ message: 'Недостаточно прав' });
         }
 
         const user = await db('userprofile').where('user_id', user_id).select('balance', 'bonus_points').first();
         if (!user) {
-            return res.status(404).json({ error: 'Пользователь не найден' });
+            return res.status(404).json({ message: 'Пользователь не найден' });
         }
-        
-        const computer = await db('computer').where('computer_id', computer_id);
+
+        // Проверка, достаточно ли бонусных баллов для оплаты
+        if (parseInt(bonus_points) > parseInt(user.bonus_points)) {
+            return res.status(405).json({ message: 'Недостаточно бонусных баллов' });
+        }
+
+        const computer = await db('computer').where('computer_id', computer_id).first();
         if (!computer) {
-            return res.status(404).json({ error: 'Такого компьютера не существует' });
+            return res.status(401).json({ message: 'Такого компьютера не существует' });
         }
-        console.log(computer.active)
-        if (computer.active) {
-            console.log('1234')
-            return res.status(404).json({ error: 'Компьютер в данный момент не доступен!' });
+
+        if (!computer.active) {
+            return res.status(402).json({ message: 'Компьютер в данный момент не доступен!' });
         }
 
         if (computer.busy) {
-            return res.status(400).json({ error: 'Компьютер уже используется' });
+            return res.status(499).json({ message: 'Компьютер уже используется' });
         }
 
-        const tariff = 0.5;
+        const tariff = 1;
         const cost = duration * tariff;
-        const bonusPoints = Math.round(Math.floor(cost * 0.05)); // Рассчитываем бонусные баллы
-        if (user.balance < cost) {
-            return res.status(400).json({ error: 'Недостаточно средств' })
+        if (bonus_points > cost){
+            return res.status(498).json({ message: 'Недостаточно средств и бонусных баллов или количество бонусных баллов больше чем стоимость' });
         }
-        const updatedBalance = user.balance - cost;
-        const updatedBonusPoints = user.bonus_points + bonusPoints;
+
+        if (user.balance + parseInt(bonus_points) < cost) {
+            return res.status(999).json({ message: 'Недостаточно средств и бонусных баллов' });
+        }
+
+        const updatedBalance = user.balance - (cost - parseInt(bonus_points));
+        const updatedBonusPoints = user.bonus_points - parseInt(bonus_points);
 
         await db('userprofile').where('user_id', user_id).update({
             balance: updatedBalance,
@@ -505,21 +542,23 @@ app.post('/sessions/:id', authenticateToken, async (req, res) => { // старт
             duration,
             computer_id,
             user_id,
+            paid_with_bonus: bonus_points
         }).returning('*');
 
-        const computer_update = await db('computer')
+        await db('computer')
             .where('computer_id', computer_id)
             .update({
                 busy: true,
-            }).returning('*');
-
+            });
 
         res.json(newSession[0]);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
+
+
 
 
 async function endSessions() {
@@ -559,19 +598,21 @@ app.put('/sessions/end/:id', authenticateToken, async (req, res) => { // зав�
     try {
         const session = await db('session').where('session_id', sessionId).first();
         if (!session) {
-            return res.status(404).json({ error: 'Session not found' });
+            return res.status(404).json({ message: 'Session not found' });
         }
 
         if (req.user.role !== 'Администратор' && session.user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Forbidden' });
+            return res.status(403).json({ message: 'Forbidden' });
         }
 
         const remainingMinutes = Math.ceil((session.date_time_end.getTime() - Date.now()) / (1000 * 60));
         if (remainingMinutes <= 0) {
-            return res.status(400).json({ error: 'Session has already ended' });
+            return res.status(400).json({ message: 'Session has already ended' });
         }
-
-        const balanceToAdd = remainingMinutes * 0.5;
+        const balanceToAdd = (remainingMinutes * 1) - session.paid_with_bonus;
+        if (balanceToAdd < 0) {
+            balanceToAdd = 0;
+        }
         const updatedBalance = await db('userprofile')
             .where('user_id', session.user_id)
             .increment('balance', balanceToAdd)
@@ -590,7 +631,7 @@ app.put('/sessions/end/:id', authenticateToken, async (req, res) => { // зав�
         return res.json({ message: 'Session ended successfully', balance: updatedBalance[0] });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -600,7 +641,7 @@ app.post('/computers', authenticateToken, async (req, res) => {
 
     const { employee_id } = req.body;
     if (req.user.role !== 'Администратор' && req.user.role !== 'Менеджер') {
-        return res.status(403).json({ error: 'Forbidden' });
+        return res.status(403).json({ message: 'Forbidden' });
     }
     try {
         const newComputer = await db('computer').insert({
@@ -610,14 +651,14 @@ app.post('/computers', authenticateToken, async (req, res) => {
         res.json(newComputer[0]);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
 app.get('/employees', authenticateToken, async (req, res) => {
     // Проверяем роль пользователя
     if (req.user.role !== 'Менеджер') {
-        return res.status(403).json({ error: 'Недостаточно прав' });
+        return res.status(403).json({ message: 'Недостаточно прав' });
     }
 
     try {
@@ -628,7 +669,7 @@ app.get('/employees', authenticateToken, async (req, res) => {
         res.json(employees);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -636,7 +677,7 @@ app.put('/computers/:computerId/toggleActive', authenticateToken, async (req, re
     try {
         if (req.user.role !== 'Менеджер') {
             console.log(req.user.role)
-            return res.status(403).json({ error: 'Недостаточно прав' });
+            return res.status(403).json({ message: 'Недостаточно прав' });
 
         }
 
@@ -645,7 +686,6 @@ app.put('/computers/:computerId/toggleActive', authenticateToken, async (req, re
         // Получаем текущее состояние "active" компьютера
         const currentComputer = await db('computer').select('active').where({ computer_id: computerId }).first();
         const isActive = currentComputer.active;
-        console.log("победа")
         // Инвертируем состояние "active"
         const updatedActive = !isActive;
 
@@ -655,7 +695,7 @@ app.put('/computers/:computerId/toggleActive', authenticateToken, async (req, re
         res.json({ message: `Состояние активности компьютера ${computerId} успешно изменено.` });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -664,7 +704,7 @@ app.put('/computers/:computerId/changeEmployee', authenticateToken, async (req, 
     try {
         if (req.user.role !== 'Менеджер') {
             console.log(req.user.role)
-            return res.status(403).json({ error: 'Недостаточно прав' });
+            return res.status(403).json({ message: 'Недостаточно прав' });
         }
 
         const { computerId } = req.params;
@@ -680,7 +720,7 @@ app.put('/computers/:computerId/changeEmployee', authenticateToken, async (req, 
         res.json({ message: `Состояние активности компьютера ${computerId} успешно изменено.` });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -696,7 +736,7 @@ app.get('/computers', authenticateToken, async (req, res) => {
         res.json(computers);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -706,7 +746,7 @@ app.get('/userprofiles', async (req, res) => {
         res.json(userProfiles);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -716,7 +756,7 @@ app.get('/payments', async (req, res) => {
         res.json(payments);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -726,7 +766,7 @@ app.get('/sessions', async (req, res) => {
         res.json(sessions);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -736,20 +776,20 @@ app.get('/avatar/:id', async (req, res) => {
     try {
         const userProfile = await db('userprofile').where('user_id', userId).select('avatar_path').first();
         if (!userProfile || !userProfile.avatar_path) {
-            return res.status(404).json({ error: 'User or avatar not found' });
+            return res.status(404).json({ message: 'User or avatar not found' });
         }
         const avatarPath = path.join(__dirname, userProfile.avatar_path);
         res.sendFile(avatarPath);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
 app.post('/upload/avatar', authenticateToken, upload.single('avatar'), async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
+            return res.status(400).json({ message: 'No file uploaded' });
         }
         const userId = req.user.id;
         const avatarPath = path.normalize(req.file.path);
@@ -761,7 +801,7 @@ app.post('/upload/avatar', authenticateToken, upload.single('avatar'), async (re
         res.json({ message: 'Avatar uploaded successfully' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -771,14 +811,18 @@ app.put('/users/:id/recharge', authenticateToken, async (req, res) => {
 
     try {
         if (req.user.role !== 'Администратор') {
-            return res.status(403).json({ error: 'Недостаточно прав' });
+            return res.status(403).json({ message: 'Недостаточно прав' });
         }
         if (amount <= 0) {
-            return res.status(400).json({ error: "Введена некорректная сумма" })
+            return res.status(400).json({ message: "Введена некорректная сумма" })
         }
+
+        const bonus_points = amount * 0.05;
+
         const userProfile = await db('userprofile')
             .where('user_id', userId)
             .increment('balance', amount)
+            .increment('bonus_points', bonus_points)
             .returning('*');
         const rechange = await db('payment')
             .insert({
@@ -789,13 +833,13 @@ app.put('/users/:id/recharge', authenticateToken, async (req, res) => {
 
 
         if (!userProfile || userProfile.length === 0) {
-            return res.status(404).json({ error: 'Пользователь не найден' });
+            return res.status(404).json({ message: 'Пользователь не найден' });
         }
 
         res.json(userProfile[0]);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -806,7 +850,7 @@ app.get('/employee/:username', async (req, res) => {
         res.json(employee.role_name); // Отправляем роль сотрудника в качестве ответа на запрос
     } catch (error) {
         console.error(error); // Выводим ошибку в консоль
-        res.status(500).json({ error: "Internal Server Error" }); // Отправляем статус 500 и сообщение об ошибке в случае исключения
+        res.status(500).json({ message: "Internal Server Error" }); // Отправляем статус 500 и сообщение об ошибке в случае исключения
     }
 });
 
@@ -816,25 +860,22 @@ app.get('/user/:id', async (req, res) => {
     try {
         const user = await db('userprofile').where('user_id', userId).first();
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
         res.json(user);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
 app.get('/rechanges', authenticateToken, async (req, res) => {
-    console.log('scsd')
     try {
         const userId = parseInt(req.user.id); // Прямое использование req.user.id без parseInt()
-        console.log(userId)
         const rechanges = await db('payment').where('user_id', userId);
         res.json(rechanges);
-        console.log(rechanges);
     } catch (error) {
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -845,13 +886,13 @@ app.put('/users/:id/login', authenticateToken, async (req, res) => {
 
     try {
         if (userId !== req.user.id) {
-            return res.status(403).json({ error: 'Forbidden' });
+            return res.status(403).json({ message: 'Forbidden' });
         }
 
         // Проверяем, существует ли пользователь с заданным новым логином
         const existingUser = await db('userprofile').where('login', newLogin).first();
         if (existingUser) {
-            return res.status(400).json({ error: 'User with this login already exists' });
+            return res.status(400).json({ message: 'User with this login already exists' });
         }
 
         // Обновляем логин пользователя в базе данных
@@ -863,7 +904,7 @@ app.put('/users/:id/login', authenticateToken, async (req, res) => {
         res.json(updatedUser[0]);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -894,7 +935,7 @@ app.post('/change-email', authenticateToken, async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -908,7 +949,7 @@ app.post('/confirm-email', authenticateToken, async (req, res) => {
 
         // Проверяем, совпадает ли переданный код с сохраненным кодом подтверждения
         if (!savedConfirmationCode || savedConfirmationCode !== parseInt(confirmationCode)) {
-            return res.status(400).json({ error: 'Invalid confirmation code' });
+            return res.status(400).json({ message: 'Invalid confirmation code' });
         }
 
         // Удаляем сохраненный код подтверждения после его использования
@@ -922,7 +963,7 @@ app.post('/confirm-email', authenticateToken, async (req, res) => {
         res.status(200).json({ message: 'Email updated successfully' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -932,7 +973,7 @@ app.post('/password-reset-request', async (req, res) => {
     try {
         const user = await db('userprofile').where('email', email).first();
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
 
         // Генерация токена сброса пароля
@@ -950,7 +991,7 @@ app.post('/password-reset-request', async (req, res) => {
         res.status(200).json({ message: 'Password reset link sent successfully' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -964,7 +1005,7 @@ app.post('/password-reset/:token', async (req, res) => {
         jwt.verify(token, JWT_SECRET, async (err, decoded) => {
             if (err) {
                 console.error(err);
-                return res.status(400).json({ error: 'Invalid or expired token' });
+                return res.status(400).json({ message: 'Invalid or expired token' });
             }
 
             const { userId } = decoded;
@@ -981,7 +1022,7 @@ app.post('/password-reset/:token', async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 

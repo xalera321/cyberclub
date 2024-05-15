@@ -1,0 +1,22 @@
+.confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    background-color: #f1c40f;
+    /* цвет конфетти */
+    border-radius: 50%;
+    z-index: 1000;
+    animation: fall 5s linear infinite;
+    /* анимация падения */
+}
+
+@keyframes fall {
+    0% {
+        transform: translateY(-100vh) rotate(0deg);
+    }
+
+    100% {
+        transform: translateY(100vh) rotate(720deg);
+        /* ускорение анимации */
+    }
+}
